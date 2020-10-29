@@ -1,0 +1,16 @@
+* 本数据集一共收录15种常用字体图像
+* 同一字体的汉字存放在同一目录下，目录从0开始命名，目录名与字体的对应关系由主目录下的font.json文件记录
+* 每种字体包含1250个汉字图像
+* 同一汉字在不同目录下均具有相同的编号，编号与汉字的对应关系由每个子目录下的label.json文件记录
+* 数据集结构：
+    * font  
+        ------ 0  
+        &emsp;&emsp;&emsp;----- hz_0000.png    
+        &emsp;&emsp;&emsp;----- hz_0001.png    
+        &emsp;&emsp;&emsp;----- hz_0002.png    
+        &emsp;&emsp;&emsp;----- ……  
+        &emsp;&emsp;&emsp;----- label.json    
+        ------ 1  
+        ------ ……  
+        ------ font.json  
+* 下载链接：ftp://47.113.85.254:9802/dataset/font.zip

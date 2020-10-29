@@ -22,8 +22,8 @@ def parse_args():
     parser.add_argument('--norm-type', type=str, default='batchnorm', help='Norm Type')
     parser.add_argument('--epochs', type=int, default=30, help='Epoch Nums')
     parser.add_argument('--output-dir', type=str, default='results', help='Output Results Directory')
-    parser.add_argument('--font-classes', type=int, required=True, help='Number of Target Font Style')
-    parser.add_argument('--font-nums', type=int, required=True, help='Number of One Font Style')
+    parser.add_argument('--font-classes', type=int, default=14, help='Number of Target Font Style')
+    # parser.add_argument('--font-nums', type=int, required=True, help='Number of One Font Style')
     parser.add_argument('--output-feature', default='False', action='store_true', help='Output Hidden Layer Feature')
     args = parser.parse_args()
     return args
@@ -54,6 +54,13 @@ def train_step(origin_images, style_target, target_images,
     discriminator_optimizer.apply_gradients(zip(discriminator_grad, discriminator.trainable_variables))
 
 
+def val_step(origin_images, style_target, target_images, generator):
+    return
+
+def test_step(origin_images, style_target, target_images, generator):
+    return
+
+
 
 
 if __name__ == '__main__':
@@ -69,7 +76,7 @@ if __name__ == '__main__':
     epochs = args.epochs
     output_dir = args.output_dir
     font_classes = args.font_classes
-    font_nums = args.font_nums
+    font_nums = 1000
     output_feature = args.output_feature
 
     steps_per_epoch = int(font_classes * font_nums / batch_size)
@@ -90,9 +97,11 @@ if __name__ == '__main__':
     discriminator_optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate_schedules, beta_1=0.5)
 
     train_dataset = get_image_dataset(train_dir,
-                                      True,
                                       font_classes,
-                                      font_nums).shuffle(shuffle_size).batch(batch_size).prefetch(AUTOTUNE)
+                                      'train').shuffle(shuffle_size).batch(batch_size).prefetch(AUTOTUNE)
+
+    val_dataset = get_image_dataset(val_dir, font_classes, 'val').batch(batch_size)
+    test_dataset = get_image_dataset(test_dir, font_classes, 'test').batch(1)
 
 
 
