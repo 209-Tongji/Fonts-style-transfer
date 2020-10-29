@@ -11,12 +11,12 @@ def gather_path(path_split):
     return head
 
 
-def build_path(target_path, font_nums):
+def build_path(target_path, font_tag):
     """输入target路径，返回原始宋体图片路径和随机同风格图片路径
 
     Args:
         target_path: 目标图片(ground truth)路径
-        font_nums: 单类别图片总数
+        font_tag: 数据用途, ['train', 'val', 'test']
 
     Returns:
         origin_path: 宋体图片路径
@@ -27,7 +27,12 @@ def build_path(target_path, font_nums):
     origin_path = path_split[:2] + ['0'] + path_split[3:]
     origin_path = gather_path(origin_path)
 
-    style_index = str(random.randint(0, font_nums - 1)).zfill(4)
+    if font_tag == 'train':
+        style_index = str(random.randint(0, 999)).zfill(4)
+    elif font_tag == 'val':
+        style_index = str(random.randint(100, 1199)).zfill(4)
+    elif font_tag == 'test':
+        style_index = str(random.randint(1200, 1249)).zfill(4)
     style_index = 'hz_{}.png'.format(style_index)
     path_split[3] = style_index
     style_path = gather_path(path_split)
@@ -37,9 +42,9 @@ def build_path(target_path, font_nums):
 
 def read_decode_image(path):
     img = tf.io.read_file(path)
-    img = tf.io.decode_png(img, 3)
+    img = tf.io.decode_png(img, 3) # [0, 1]
     img = tf.image.convert_image_dtype(img, tf.float32)
-
+    img = img * 2.0 - 1.0 # normalize [-1., 1.]
     return img
 
 
@@ -48,7 +53,7 @@ def load_image(target_path, origin_path, style_path, training):
     origin_image = read_decode_image(origin_path)
     style_image = read_decode_image(style_path)
 
-    # img range is [0, 1]
+    # img range is [-1., 1.]
     return [target_image, origin_image, style_image]
 
 
@@ -78,14 +83,13 @@ def process_image_data(training):
     return process_function
 
 
-def get_image_dataset(data_dir, training, font_classes, font_nums):
+def get_image_dataset(data_dir, font_classes, font_tag):
     """get image tensorflow Dataset
 
     Args:
-        data_dir: train data dir
-        training: if True, this dataset is for training
+        data_dir: train/val/test data dir
         font_classes: number of target font classes
-        font_nums: number of images for one class font
+        font_tag: usage of dataset, choose from ['train', 'val', 'test']
 
     Returns:
         Dataset
@@ -97,12 +101,17 @@ def get_image_dataset(data_dir, training, font_classes, font_nums):
         'target': [],
     }
 
+    if font_tag not in ['train', 'val', 'test']:
+        font_tag = data_dir.split('/')[1]
+
+    training = True if font_tag == 'train' else False # image augment tag
+
     for font_class in range(1, font_classes+1):
         font_class_dir = (data_dir + '/{}/*.png').format(str(font_class))
         target_list = tf.io.gfile.glob(font_class_dir)
         for target_path in target_list:
             records['target'].append(target_path)
-            origin_path, style_path = build_path(target_path, font_nums)
+            origin_path, style_path = build_path(target_path, font_tag)
             records['origin'].append(origin_path)
             records['style_target'].append(style_path)
 
