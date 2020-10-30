@@ -4,6 +4,7 @@ import argparse
 import time
 import tensorflow as tf
 
+from utils import *
 from dataset import get_image_dataset
 from Models.DCGAN import unet_generator, discriminator
 from losses import l1_loss, standard_generator_loss, standard_discriminator_loss
@@ -23,6 +24,7 @@ def parse_args():
     parser.add_argument('--epochs', type=int, default=30, help='Epoch Nums')
     parser.add_argument('--output-dir', type=str, default='results', help='Output Results Directory')
     parser.add_argument('--font-classes', type=int, default=14, help='Number of Target Font Style')
+    parser.add_argument('--save-tag', type=str, default='notag', help='Saving Experiment Tag')
     # parser.add_argument('--font-nums', type=int, required=True, help='Number of One Font Style')
     parser.add_argument('--output-feature', default='False', action='store_true', help='Output Hidden Layer Feature')
     args = parser.parse_args()
@@ -77,7 +79,13 @@ if __name__ == '__main__':
     output_dir = args.output_dir
     font_classes = args.font_classes
     font_nums = 1000
+    save_tag = args.save_tag
     output_feature = args.output_feature
+
+    output_dir = init_out_dir(output_dir, save_tag)
+    initial_logger(os.path.join(output_dir, 'log.txt'))
+
+    logger = get_logger()
 
     steps_per_epoch = int(font_classes * font_nums / batch_size)
 
