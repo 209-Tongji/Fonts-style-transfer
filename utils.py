@@ -51,6 +51,25 @@ def new_folder(dir_path):
     tf.io.gfile.mkdir(dir_path)
 
 
+def init_out_dir(out_dir, tag):
+    """init current experiment save folder
+
+    Args:
+        out_dir: existed dir to save results
+        tag: experiment tag
+    """
+    time_str = get_time_str()
+
+    if not tag:
+        tag = 'notag'
+    exp_name = '{}_{}'.format(tag, time_str)
+    out_dir = os.path.join(out_dir, exp_name)
+
+    new_folder(out_dir)
+
+    return out_dir
+
+
 def remove_file(file_path):
     try:
         os.remove(file_path)

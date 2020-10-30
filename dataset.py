@@ -2,6 +2,8 @@ import os
 import random
 import tensorflow as tf
 
+from utils import *
+
 
 # 将包含多个单一路径名称的list合并为一个连续路径
 def gather_path(path_split):
@@ -101,8 +103,12 @@ def get_image_dataset(data_dir, font_classes, font_tag):
         'target': [],
     }
 
+    logger = get_logger()
+
     if font_tag not in ['train', 'val', 'test']:
         font_tag = data_dir.split('/')[1]
+
+    logger.info('Create {} Dataset'.format(font_tag))
 
     training = True if font_tag == 'train' else False # image augment tag
 
