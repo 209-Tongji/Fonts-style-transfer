@@ -55,6 +55,8 @@ def train_step(origin_images, style_target, target_images,
     generator_optimizer.apply_gradients(zip(generator_grad, generator.trainable_variables))
     discriminator_optimizer.apply_gradients(zip(discriminator_grad, discriminator.trainable_variables))
 
+    return gen_adversarial_loss, gen_l1_loss
+
 
 def val_step(origin_images, style_target, target_images, generator):
     return
@@ -111,17 +113,43 @@ if __name__ == '__main__':
     val_dataset = get_image_dataset(val_dir, font_classes, 'val').batch(batch_size)
     test_dataset = get_image_dataset(test_dir, font_classes, 'test').batch(1)
 
+    epoch_timer = Timer()
 
 
-    # train
     for epoch in range(epochs):
+        # Reset the metrics
+        train_ad_loss_sum = 0.0
+        train_l1_loss_sum = 0.0
+        num_batches = 0
+
+        # Train Loop
+        epoch_timer.timeit()
         for batch in train_dataset:
             origin = batch['origin']
             style_inputs = batch['style_target']
             target = batch['target']
 
-            train_step(origin, style_inputs, target, generator, discriminator,
-                       generator_optimizer, discriminator_optimizer, l1_lambda)
+            gen_ad_loss, gen_l1_loss = train_step(origin, style_inputs, target,
+                                                  generator, discriminator,
+                                                  generator_optimizer, discriminator_optimizer,
+                                                  l1_lambda)
+            train_ad_loss_sum += gen_ad_loss
+            train_l1_loss_sum += gen_l1_loss
+            num_batches += 1
+        used_time_train = epoch_timer.timeit()
+
+        train_log_template = (
+            'Epoch {}, Train Adversarial Loss: {:.4f}, Train L1 Loss: {:.4f}, '
+            'Train Time: {:.4f} min'
+        )
+        logger.info(
+            train_log_template.format(
+                epoch + 1,
+                train_ad_loss_sum / num_batches,
+                train_l1_loss_sum / num_batches,
+                used_time_train / 60
+            )
+        )
 
 
 
