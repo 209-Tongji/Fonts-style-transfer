@@ -32,7 +32,7 @@ def build_path(target_path, font_tag):
     if font_tag == 'train':
         style_index = str(random.randint(0, 999)).zfill(4)
     elif font_tag == 'val':
-        style_index = str(random.randint(100, 1199)).zfill(4)
+        style_index = str(random.randint(1000, 1199)).zfill(4)
     elif font_tag == 'test':
         style_index = str(random.randint(1200, 1249)).zfill(4)
     style_index = 'hz_{}.png'.format(style_index)
@@ -101,6 +101,7 @@ def get_image_dataset(data_dir, font_classes, font_tag):
         'origin': [],
         'style_target': [],
         'target': [],
+        'target_path': [],
     }
 
     logger = get_logger()
@@ -116,6 +117,7 @@ def get_image_dataset(data_dir, font_classes, font_tag):
         font_class_dir = (data_dir + '/{}/*.png').format(str(font_class))
         target_list = tf.io.gfile.glob(font_class_dir)
         for target_path in target_list:
+            records['target_path'].append(target_path)
             records['target'].append(target_path)
             origin_path, style_path = build_path(target_path, font_tag)
             records['origin'].append(origin_path)

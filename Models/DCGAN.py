@@ -94,7 +94,7 @@ def upsample(filters, size, norm_type='batchnorm', apply_dropout=False):
     return result
 
 
-def unet_generator(output_channels, norm_type='batchnorm'):
+def build_unet_generator(output_channels, norm_type='batchnorm', target=True):
     """Modified u-net generator model
 
     Args:
@@ -106,32 +106,36 @@ def unet_generator(output_channels, norm_type='batchnorm'):
     """
 
     down_stack = [
-        downsample(64, 4, norm_type, apply_norm=False), # (bs, 32, 32, 64)
-        downsample(128, 4, norm_type), # (bs, 16, 16, 128)
-        downsample(256, 4, norm_type), # (bs, 8, 8, 256)
-        downsample(512, 4, norm_type), # (bs, 4, 4, 512)
-        downsample(512, 4, norm_type), # (bs, 2, 2, 512)
-        downsample(512, 4, norm_type), # (bs, 1, 1, 512)
+        downsample(64, 4, norm_type, apply_norm=False), # (bs, 112, 112, 64)
+        downsample(128, 4, norm_type), # (bs, 56, 56, 128)
+        downsample(256, 4, norm_type), # (bs, 28, 28, 256)
+        downsample(512, 4, norm_type), # (bs, 14, 14, 512)
+        downsample(512, 4, norm_type), # (bs, 7, 7, 512)
+        #downsample(512, 4, norm_type), # (bs, 1, 1, 512)
     ]
 
     up_stack = [
-        upsample(512, 4, norm_type, apply_dropout=True), # (bs, 2, 2, 1024)
-        upsample(512, 4, norm_type), # (bs, 4, 4, 1024)
-        upsample(256, 4, norm_type), # (bs, 8, 8, 512)
-        upsample(128, 4, norm_type), # (bs, 16, 16, 256)
-        upsample(64, 4, norm_type), # (bs, 32, 32, 128)
+        upsample(512, 4, norm_type, apply_dropout=True), # (bs, 14, 14, 1024)
+        #upsample(512, 4, norm_type), # (bs, 28, 28, 1024)
+        upsample(256, 4, norm_type), # (bs, 28, 28, 512)
+        upsample(128, 4, norm_type), # (bs, 56, 56, 256)
+        upsample(64, 4, norm_type), # (bs, 112, 112, 128)
     ]
 
     initializer = tf.random_normal_initializer(0., 0.02)
 
     last = tf.keras.layers.Conv2DTranspose(output_channels, 4, strides=2, padding='same',
                                            kernel_initializer=initializer,
-                                           activation='tanh') # (bs, 64, 64, 3)
+                                           activation='tanh') # (bs, 224, 224, 3)
 
     concat = tf.keras.layers.Concatenate()
 
-    inputs = tf.keras.Input(shape=[None, None, 3])
-    x = inputs
+    inp = tf.keras.Input(shape=[None, None, 3], name='input_image')
+    x = inp
+
+    if target:
+        tar = tf.keras.Input(shape=[None, None, 3], name='target_image') # style target
+        x = tf.keras.layers.concatenate([inp, tar]) # (bs, 224, 224, channels*2)
 
     # Downsampling through the model
     skips = []
@@ -148,10 +152,13 @@ def unet_generator(output_channels, norm_type='batchnorm'):
 
     x = last(x)
 
-    return tf.keras.Model(inputs=inputs, outputs=x)
+    if target:
+        return tf.keras.Model(inputs=[inp, tar], outputs=x)
+    else:
+        return tf.keras.Model(inputs=inp, outputs=x)
 
 
-def discriminator(norm_type='batchnorm', target=True):
+def build_discriminator(norm_type='batchnorm', target=True):
     """PatchGan discriminator model
 
     Args:
@@ -170,16 +177,16 @@ def discriminator(norm_type='batchnorm', target=True):
 
     if target:
         tar = tf.keras.layers.Input(shape=[None, None, 3], name='target_image') # 目标风格
-        x = tf.keras.layers.concatenate([inp, tar])  # (bs, 64, 64, channels*2)
+        x = tf.keras.layers.concatenate([inp, tar])  # (bs, 224, 224, channels*2)
 
-    down1 = downsample(64, 4, norm_type, False)(x)  # (bs, 32, 32, 64)
-    down2 = downsample(128, 4, norm_type)(down1)  # (bs, 16, 16, 128)
-    down3 = downsample(256, 4, norm_type)(down2)  # (bs, 8, 8, 256)
+    down1 = downsample(64, 4, norm_type, False)(x)  # (bs, 112, 112, 64)
+    down2 = downsample(128, 4, norm_type)(down1)  # (bs, 56, 56, 128)
+    down3 = downsample(256, 4, norm_type)(down2)  # (bs, 28, 28, 256)
 
-    zero_pad1 = tf.keras.layers.ZeroPadding2D()(down3)  # (bs, 10, 10, 256)
+    zero_pad1 = tf.keras.layers.ZeroPadding2D()(down3)  # (bs, 30, 30, 256)
     conv = tf.keras.layers.Conv2D(512, 4, strides=1,
                                   kernel_initializer=initializer,
-                                  use_bias=False)(zero_pad1) # (bs, 7, 7, 512)
+                                  use_bias=False)(zero_pad1) # (bs, 27, 27, 512)
 
     if norm_type.lower() == 'batchnorm':
         norm1 = tf.keras.layers.BatchNormalization()(conv)
@@ -188,10 +195,10 @@ def discriminator(norm_type='batchnorm', target=True):
 
     leaky_relu = tf.keras.layers.LeakyReLU()(norm1)
 
-    zero_pad2 = tf.keras.layers.ZeroPadding2D()(leaky_relu) # (bs, 9, 9, 512)
+    zero_pad2 = tf.keras.layers.ZeroPadding2D()(leaky_relu) # (bs, 29, 29, 512)
 
     last = tf.keras.layers.Conv2D(1, 4, strides=1,
-                                  kernel_initializer=initializer)(zero_pad2) # (bs, 6, 6, 1)
+                                  kernel_initializer=initializer)(zero_pad2) # (bs, 26, 26, 1)
 
     if target:
         return tf.keras.Model(inputs=[inp, tar], outputs=last)

@@ -92,3 +92,15 @@ class Timer(object):
 
 
 
+def plot_image(output_dir, output_image, font_class, font_index):
+    output_dir = os.path.join(output_dir, font_class)
+    if not tf.io.gfile.isdir(output_dir):
+        tf.io.gfile.mkdir(output_dir)
+    output_dir = os.path.join(output_dir, font_index)
+
+    output_image = tf.io.encode_jpeg(output_image)
+    tf.io.write_file(output_dir, output_image)
+
+
+
+
