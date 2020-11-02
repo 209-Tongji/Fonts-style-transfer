@@ -60,7 +60,7 @@ def train_step(origin_images, style_target, target_images,
 
 val_l1_loss = tf.keras.metrics.Mean(name='val_l1_loss')
 val_ssim = tf.keras.metrics.Mean(name='val_ssim')
-def val_step(origin_images, style_target, target_images, generator):
+def val_step(origin_images, style_target, target_images, generator, l1_lambda):
     output_images = generator([origin_images, style_target], training=False)
 
     target_images_renormalized = (target_images + 1.0) / 2
@@ -68,8 +68,9 @@ def val_step(origin_images, style_target, target_images, generator):
 
     ssim = tf.image.ssim(target_images_renormalized[0], output_images_renormalized[0], max_val=1.0)
 
-    mae_loss_object = tf.keras.losses.MeanAbsoluteError()
-    mae_loss = mae_loss_object(target_images_renormalized, output_images_renormalized)
+    #mae_loss_object = tf.keras.losses.MeanAbsoluteError()
+    #mae_loss = mae_loss_object(target_images_renormalized, output_images_renormalized)
+    mae_loss = l1_loss(target_images_renormalized[0], output_images_renormalized[0], l1_lambda)
 
     val_l1_loss(mae_loss)
     val_ssim(ssim)
@@ -186,7 +187,7 @@ if __name__ == '__main__':
             origin = batch['origin']
             style_inputs = batch['style_target']
             target = batch['target']
-            val_step(origin, style_inputs, target, generator)
+            val_step(origin, style_inputs, target, generator, l1_lambda)
         used_time_val = epoch_timer.timeit()
 
         val_log_template = (
@@ -203,13 +204,15 @@ if __name__ == '__main__':
 
 
         # Test Loop
+        cur_output_dir = os.path.join(output_dir, 'epoch{}'.format(epoch + 1))
+        tf.io.gfile.mkdir(cur_output_dir)
         epoch_timer.timeit()
         for batch in test_dataset:
             origin = batch['origin']
             style_inputs = batch['style_target']
             target = batch['target']
             target_path = batch['target_path']
-            test_step(origin, style_inputs, target, target_path, generator, output_dir)
+            test_step(origin, style_inputs, target, target_path, generator, cur_output_dir)
         used_time_test = epoch_timer.timeit()
 
         test_log_template = (
