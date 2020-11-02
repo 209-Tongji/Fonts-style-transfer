@@ -36,7 +36,7 @@ def train_step(origin_images, style_target, target_images,
                generator, discriminator,
                generator_optimizer, discriminator_optimizer, l1_lambda):
 
-    with tf.Gradient(persistent=True) as tape:
+    with tf.GradientTape(persistent=True) as tape:
         gen_images = generator([origin_images, style_target], training=True)
 
         disc_real = discriminator([target_images, style_target], training=True)
@@ -58,8 +58,8 @@ def train_step(origin_images, style_target, target_images,
     return gen_adversarial_loss, gen_l1_loss
 
 
-val_l1_loss = tf.keras.merics.Mean(name='val_l1_loss')
-val_ssim = tf.keras.merics.Mean(name='val_ssim')
+val_l1_loss = tf.keras.metrics.Mean(name='val_l1_loss')
+val_ssim = tf.keras.metrics.Mean(name='val_ssim')
 def val_step(origin_images, style_target, target_images, generator):
     output_images = generator([origin_images, style_target], training=False)
 
@@ -177,8 +177,8 @@ if __name__ == '__main__':
 
 
         # Reset val metrics
-        val_l1_loss.reset_status()
-        val_ssim.reset_status()
+        val_l1_loss.reset_states()
+        val_ssim.reset_states()
 
         # Val Loop
         epoch_timer.timeit()
