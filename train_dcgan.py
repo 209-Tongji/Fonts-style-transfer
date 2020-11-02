@@ -66,7 +66,7 @@ def val_step(origin_images, style_target, target_images, generator):
     target_images_renormalized = (target_images + 1.0) / 2
     output_images_renormalized = (output_images + 1.0) / 2
 
-    ssim = tf.image.ssim(target_images_renormalized[0], output_images_renormalized[0])
+    ssim = tf.image.ssim(target_images_renormalized[0], output_images_renormalized[0], max_val=1.0)
 
     mae_loss_object = tf.keras.losses.MeanAbsoluteError()
     mae_loss = mae_loss_object(target_images_renormalized, output_images_renormalized)
