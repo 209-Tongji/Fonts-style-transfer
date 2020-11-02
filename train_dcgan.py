@@ -6,7 +6,7 @@ import tensorflow as tf
 
 from utils import *
 from dataset import get_image_dataset
-from Models.DCGAN import unet_generator, discriminator
+from Models.DCGAN import build_unet_generator, build_discriminator
 from losses import l1_loss, standard_generator_loss, standard_discriminator_loss
 
 
@@ -37,10 +37,10 @@ def train_step(origin_images, style_target, target_images,
                generator_optimizer, discriminator_optimizer, l1_lambda):
 
     with tf.Gradient(persistent=True) as tape:
-        gen_images = generator(origin_images, training=True)
+        gen_images = generator([origin_images, style_target], training=True)
 
-        disc_real = discriminator(target_images, training=True)
-        disc_gen = discriminator(gen_images, training=True)
+        disc_real = discriminator([target_images, style_target], training=True)
+        disc_gen = discriminator([gen_images, style_target], training=True)
 
         # cal loss
         gen_adversarial_loss = standard_generator_loss(disc_gen)
@@ -58,11 +58,36 @@ def train_step(origin_images, style_target, target_images,
     return gen_adversarial_loss, gen_l1_loss
 
 
+val_l1_loss = tf.keras.merics.Mean(name='val_l1_loss')
+val_ssim = tf.keras.merics.Mean(name='val_ssim')
 def val_step(origin_images, style_target, target_images, generator):
-    return
+    output_images = generator([origin_images, style_target], training=False)
 
-def test_step(origin_images, style_target, target_images, generator):
-    return
+    target_images_renormalized = (target_images + 1.0) / 2
+    output_images_renormalized = (output_images + 1.0) / 2
+
+    ssim = tf.image.ssim(target_images_renormalized[0], output_images_renormalized[0])
+
+    mae_loss_object = tf.keras.losses.MeanAbsoluteError()
+    mae_loss = mae_loss_object(target_images_renormalized, output_images_renormalized)
+
+    val_l1_loss(mae_loss)
+    val_ssim(ssim)
+
+
+def test_step(origin_images, style_target, target_images, target_path, generator, output_dir):
+    output_images = generator([origin_images, style_target], training=False)
+
+    output_images_renormalized = (output_images + 1.0) / 2
+    output_images_renormalized = output_images_renormalized[0]
+    output_images_renormalized = tf.cast(output_images_renormalized * 255.0, tf.uint8)
+    output_images_path = target_path[0].numpy().decode('utf-8')
+    output_images_path = output_images_path.split('/')
+    font_class = output_images_path[-2]
+    font_index = output_images_path[-1]
+
+    plot_image(output_dir, output_images_renormalized, font_class, font_index)
+
 
 
 
@@ -96,8 +121,8 @@ if __name__ == '__main__':
 
     AUTOTUNE = tf.data.experimental.AUTOTUNE
 
-    generator = unet_generator(3, norm_type)
-    discriminator(norm_type, False)
+    generator = build_unet_generator(3, norm_type, True)
+    discriminator = build_discriminator(norm_type, True)
 
     learning_rate = [learning_rate, learning_rate * 0.1, learning_rate * 0.01][:]
     boundaries = [int(0.4 * epochs * steps_per_epoch), int(0.6 * epochs * steps_per_epoch)]
@@ -110,14 +135,13 @@ if __name__ == '__main__':
                                       font_classes,
                                       'train').shuffle(shuffle_size).batch(batch_size).prefetch(AUTOTUNE)
 
-    val_dataset = get_image_dataset(val_dir, font_classes, 'val').batch(batch_size)
-    test_dataset = get_image_dataset(test_dir, font_classes, 'test').batch(1)
+    val_dataset = get_image_dataset(val_dir, font_classes, 'val').batch(1).prefetch(AUTOTUNE)
+    test_dataset = get_image_dataset(test_dir, font_classes, 'test').batch(1).prefetch(AUTOTUNE)
 
     epoch_timer = Timer()
 
-
     for epoch in range(epochs):
-        # Reset the metrics
+        # Reset train metrics
         train_ad_loss_sum = 0.0
         train_l1_loss_sum = 0.0
         num_batches = 0
@@ -150,6 +174,61 @@ if __name__ == '__main__':
                 used_time_train / 60
             )
         )
+
+
+        # Reset val metrics
+        val_l1_loss.reset_status()
+        val_ssim.reset_status()
+
+        # Val Loop
+        epoch_timer.timeit()
+        for batch in val_dataset:
+            origin = batch['origin']
+            style_inputs = batch['style_target']
+            target = batch['target']
+            val_step(origin, style_inputs, target, generator)
+        used_time_val = epoch_timer.timeit()
+
+        val_log_template = (
+            'Epoch {}, Val L1 Loss: {:.4f}, Val SSIM: {:.4f}, Val Time: {:.4f} min'
+        )
+        logger.info(
+            val_log_template.format(
+                epoch + 1,
+                val_l1_loss.result(),
+                val_ssim.result(),
+                used_time_val / 60
+            )
+        )
+
+
+        # Test Loop
+        epoch_timer.timeit()
+        for batch in test_dataset:
+            origin = batch['origin']
+            style_inputs = batch['style_target']
+            target = batch['target']
+            target_path = batch['target_path']
+            test_step(origin, style_inputs, target, target_path, generator, output_dir)
+        used_time_test = epoch_timer.timeit()
+
+        test_log_template = (
+            'Epoch {}, Val Time: {:.4f} min'
+        )
+        logger.info(
+            test_log_template.format(
+                epoch + 1,
+                used_time_test / 60
+            )
+        )
+
+
+        # Save Model
+        generator.save(os.path.join(output_dir,
+                                    'checkpoints',
+                                    'epoch_{}'.format(epoch+1)))
+
+
 
 
 
