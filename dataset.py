@@ -108,8 +108,8 @@ def get_image_dataset(jsonfile, font_tag):
 
     logger = get_logger()
 
-    if font_tag not in ['train', 'val', 'test']:
-        font_tag = data_dir.split('/')[1]
+    #if font_tag not in ['train', 'val', 'test']:
+    #    font_tag = data_dir.split('/')[1]
 
     logger.info('Create {} Dataset'.format(font_tag))
 
