@@ -5,8 +5,13 @@ import json
 import random
 import time
 from utils import *
-from dataset import gather_path
 
+# 将包含多个单一路径名称的list合并为一个连续路径
+def gather_path(path_split):
+    head = ''
+    for path in path_split:
+        head = os.path.join(head, path)
+    return head
 
 logger = get_logger()
 
@@ -49,7 +54,7 @@ def build_train_json(train_dir, train_classes, output_dir, save_tag):
 
     logger.info('Create Train Dataset Json File {}'.format(file_name))
 
-    return file_name
+    return file_name + '.json'
 
 
 
@@ -92,7 +97,7 @@ def build_val_json(val_dir, val_classes, output_dir, save_tag):
 
     logger.info('Create Val Dataset Json File {}'.format(file_name))
 
-    return file_name
+    return file_name + '.json'
 
 
 def build_test_json(test_dir, test_classes, output_dir, save_tag):
@@ -134,7 +139,7 @@ def build_test_json(test_dir, test_classes, output_dir, save_tag):
 
     logger.info('Create Test Dataset Json File {}'.format(file_name))
 
-    return file_name
+    return file_name + '.json'
 
 
 def load_json(file_name):
