@@ -225,11 +225,15 @@ if __name__ == '__main__':
             )
         )
 
-
+        # Save Model (weights)
+        generator.save_weights(os.path.join(output_dir,
+                                            'checkpoints_weights',
+                                            'epoch_{}'.format(epoch + 1),
+                                            'variables'))
         # Save Model
-        generator.save(os.path.join(output_dir,
-                                    'checkpoints',
-                                    'epoch_{}'.format(epoch+1)))
+        #generator.save(os.path.join(output_dir,
+        #                            'checkpoints',
+        #                            'epoch_{}'.format(epoch+1)))
 
 
 
