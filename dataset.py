@@ -3,6 +3,7 @@ import random
 import tensorflow as tf
 
 from utils import *
+from build_json import load_json
 
 
 # 将包含多个单一路径名称的list合并为一个连续路径
@@ -13,6 +14,7 @@ def gather_path(path_split):
     return head
 
 
+# deprecated
 def build_path(target_path, font_tag):
     """输入target路径，返回原始宋体图片路径和随机同风格图片路径
 
@@ -85,7 +87,7 @@ def process_image_data(training):
     return process_function
 
 
-def get_image_dataset(data_dir, font_classes, font_tag):
+def get_image_dataset(jsonfile, font_tag):
     """get image tensorflow Dataset
 
     Args:
@@ -113,15 +115,13 @@ def get_image_dataset(data_dir, font_classes, font_tag):
 
     training = True if font_tag == 'train' else False # image augment tag
 
-    for font_class in range(1, font_classes+1):
-        font_class_dir = (data_dir + '/{}/*.png').format(str(font_class))
-        target_list = tf.io.gfile.glob(font_class_dir)
-        for target_path in target_list:
-            records['target_path'].append(target_path)
-            records['target'].append(target_path)
-            origin_path, style_path = build_path(target_path, font_tag)
-            records['origin'].append(origin_path)
-            records['style_target'].append(style_path)
+    json_list = load_json(jsonfile)
+
+    for item in json_list:
+        records['target_path'].append(item['target_path'])
+        records['target'].append(item['target_path'])
+        records['origin'].append(item['origin_path'])
+        records['style_target'].append(item['style_path'])
 
     dataset = tf.data.Dataset.from_tensor_slices(records)
     dataset = dataset.map(
@@ -129,5 +129,4 @@ def get_image_dataset(data_dir, font_classes, font_tag):
         num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
     return dataset
-
 
