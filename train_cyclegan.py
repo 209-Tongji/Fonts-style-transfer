@@ -6,7 +6,7 @@ import tensorflow as tf
 
 from utils import *
 from dataset import get_image_dataset
-from Models.CycleGAN import build_unet_generator, build_discriminator
+from Models.CycleGAN import build_resnet_generator, build_unet_generator, build_discriminator
 from losses import l1_loss, standard_generator_loss, standard_discriminator_loss
 from build_json import build_train_json, build_val_json, build_test_json
 
@@ -159,8 +159,8 @@ if __name__ == '__main__':
 
     AUTOTUNE = tf.data.experimental.AUTOTUNE
 
-    generator_g = build_unet_generator(3, norm_type, False)
-    generator_f = build_unet_generator(3, norm_type, False)
+    generator_g = build_resnet_generator(norm_type=norm_type, target=False)
+    generator_f = build_resnet_generator(norm_type=norm_type, target=False)
     discriminator_x = build_discriminator(norm_type, False)
     discriminator_y = build_discriminator(norm_type, False)
 
