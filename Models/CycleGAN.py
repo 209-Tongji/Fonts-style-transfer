@@ -1,6 +1,8 @@
 import tensorflow as tf
+import tensorflow_addons as tfa
 
 
+# deprecated
 class InstanceNormalization(tf.keras.layers.Layer):
     """Instance Normalization Layer (https://arxiv.org/abs/1607.08022)."""
 
@@ -30,6 +32,18 @@ class InstanceNormalization(tf.keras.layers.Layer):
         return self.scale * normalized + self.offset
 
 
+def _get_norm_layer(norm_type):
+    if norm_type.lower() == 'none':
+        return lambda: lambda x: x
+    elif norm_type.lower() == 'batchnorm':
+        return tf.keras.layers.BatchNormalization
+    elif norm_type.lower() == 'instancenorm':
+        return tfa.layers.InstanceNormalization
+    elif norm_type.lower() == 'layer_norm':
+        return tf.keras.layers.LayerNormalization
+
+
+
 def downsample(filters, size, norm_type='batchnorm', apply_norm=True):
     """Downsample an input.
 
@@ -55,11 +69,32 @@ def downsample(filters, size, norm_type='batchnorm', apply_norm=True):
         if norm_type.lower() == 'batchnorm':
             result.add(tf.keras.layers.BatchNormalization())
         elif norm_type.lower() == 'instancenorm':
-            result.add(InstanceNormalization())
+            result.add(tfa.layers.InstanceNormalization())
 
     result.add(tf.keras.layers.LeakyReLU())
 
     return result
+
+
+def residual_block(x, size=3, norm_type='instancenorm'):
+    Norm = _get_norm_layer(norm_type)
+    initializer = tf.random_normal_initializer(0., 0.02)
+
+    dim = x.shape[-1]
+    h = x
+
+    h = tf.pad(h, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
+    h = tf.keras.layers.Conv2D(dim, size, padding='valid', use_bias=False,
+                               kernel_initializer=initializer)(h)
+    h = Norm()(h)
+    h = tf.nn.relu(h)
+
+    h = tf.pad(h, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
+    h = tf.keras.layers.Conv2D(dim, size, padding='valid', use_bias=False,
+                               kernel_initializer=initializer)(h)
+
+    return tf.keras.layers.add([x, h])
+
 
 def upsample(filters, size, norm_type='batchnorm', apply_dropout=False):
     """Upsamples an input
@@ -85,7 +120,7 @@ def upsample(filters, size, norm_type='batchnorm', apply_dropout=False):
     if norm_type.lower() == 'batchnorm':
         result.add(tf.keras.layers.BatchNormalization())
     elif norm_type.lower() == 'instancenorm':
-        result.add(InstanceNormalization())
+        result.add(tfa.layers.InstanceNormalization())
 
     if apply_dropout:
         result.add(tf.keras.layers.Dropout(0.5))
@@ -159,6 +194,65 @@ def build_unet_generator(output_channels, norm_type='batchnorm', target=True):
         return tf.keras.Model(inputs=inp, outputs=x)
 
 
+def build_resnet_generator(output_channels=3, dim=64,
+                           n_downsamplings=2, n_blocks=9,
+                           norm_type='instancenorm', target=True):
+    """Modified resnet generator model
+
+    Args:
+        output_channels: Output channels
+        norm_type: Type of normalization. Either 'batchnorm' or 'instancenorm'.
+
+    Returns:
+        Generator model
+    """
+
+
+    initializer = tf.random_normal_initializer(0., 0.02)
+
+    Norm = _get_norm_layer(norm_type)
+
+    inp = tf.keras.Input(shape=[None, None, 3], name='input_image')
+    x = inp
+
+    if target:
+        tar = tf.keras.Input(shape=[None, None, 3], name='target_image')  # style target
+        x = tf.keras.layers.concatenate([inp, tar])  # (bs, 224, 224, channels*2)
+
+    x = tf.pad(x, [[0, 0], [3, 3], [3, 3], [0, 0]], mode='REFLECT')
+    x = tf.keras.layers.Conv2D(dim, 7, padding='valid', use_bias=False,
+                               kernel_initializer=initializer)(x)
+    x = Norm()(x)
+    x = tf.nn.relu(x)
+
+    for _ in range(n_downsamplings):
+        dim *= 2
+        x = tf.keras.layers.Conv2D(dim, 3, strides=2, padding='same',
+                                   use_bias=False, kernel_initializer=initializer)(x)
+        x = Norm()(x)
+        x = tf.nn.relu(x)
+
+    for _ in range(n_blocks):
+        x = residual_block(x, 3, norm_type)
+
+    for _ in range(n_downsamplings):
+        dim //= 2
+        x = tf.keras.layers.Conv2DTranspose(dim, 3, strides=2, padding='same',
+                                            use_bias=False, kernel_initializer=initializer)(x)
+        x = Norm()(x)
+        x = tf.nn.relu(x)
+
+    x = tf.pad(x, [[0, 0], [3, 3], [3, 3], [0, 0]], mode='REFLECT')
+    x = tf.keras.layers.Conv2D(output_channels, 7, padding='valid',
+                               kernel_initializer=initializer)(x)
+    x = tf.tanh(x)
+
+    if target:
+        return tf.keras.Model(inputs=[inp, tar], outputs=x)
+    else:
+        return tf.keras.Model(inputs=inp, outputs=x)
+
+
 def build_discriminator(norm_type='batchnorm', target=True):
     """PatchGan discriminator model
 
@@ -192,7 +286,7 @@ def build_discriminator(norm_type='batchnorm', target=True):
     if norm_type.lower() == 'batchnorm':
         norm1 = tf.keras.layers.BatchNormalization()(conv)
     elif norm_type.lower() == 'instancenorm':
-        norm1 = InstanceNormalization()(conv)
+        norm1 = tfa.layers.InstanceNormalization()(conv)
 
     leaky_relu = tf.keras.layers.LeakyReLU()(norm1)
 
