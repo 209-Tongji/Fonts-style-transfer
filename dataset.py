@@ -104,6 +104,7 @@ def get_image_dataset(jsonfile, font_tag):
         'style_target': [],
         'target': [],
         'target_path': [],
+        'target_class': [],
     }
 
     logger = get_logger()
@@ -122,6 +123,8 @@ def get_image_dataset(jsonfile, font_tag):
         records['target'].append(item['target_path'])
         records['origin'].append(item['origin_path'])
         records['style_target'].append(item['style_path'])
+        records['target_class'].append(int(item['target_path'].split('/')[-2]))
+
 
     dataset = tf.data.Dataset.from_tensor_slices(records)
     dataset = dataset.map(
