@@ -172,3 +172,44 @@ def build_generator(dim_in=64, style_dim=64, max_conv_dim=512, repeat_num=4):
     return tf.keras.Model(inputs=[image_input, style_code_input], outputs=output)
 
 
+
+class MappingNetwork(tf.keras.Model):
+    def __init__(self, latent_dim=16, style_dim=64, num_domains=3):
+        super(MappingNetwork, self).__init__()
+        self.shared = tf.keras.Sequential()
+        self.shared.add(tf.keras.Input(shape=(latent_dim,)))
+        for _ in range(4):
+            self.shared.add(tf.keras.layers.Dense(512))
+            self.shared.add(tf.keras.layers.ReLU())
+        self.unshared = []
+        for _ in range(num_domains):
+            self.unshared += [tf.keras.Sequential([
+                tf.keras.layers.Dense(512),
+                tf.keras.layers.ReLU(),
+                tf.keras.layers.Dense(512),
+                tf.keras.layers.ReLU(),
+                tf.keras.layers.Dense(512),
+                tf.keras.layers.ReLU(),
+                tf.keras.layers.Dense(style_dim),
+            ])]
+
+    def call(self, z, y):
+        h = self.shared(z)
+        out = []
+        for layer in self.unshared:
+            out += [layer(h)]
+        out = tf.stack(out, axis=1)  # (batch, num_domains, style_dim)
+        res = []
+        for i in range(y.shape[0]):
+            y_index = y[i]
+            res.append(out[i, y_index])  # (batch, style_dim)
+        return tf.stack(res, axis=0)
+
+def build_mapping_network(latent_dim=16, style_dim=64, num_domains=3):
+    mapping_network = MappingNetwork(latent_dim, style_dim, num_domains)
+    return mapping_network
+
+
+
+
+
