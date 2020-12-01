@@ -43,7 +43,7 @@ class AdaptiveInstanceNormalization(tf.keras.layers.Layer):
 
     def call(self, x, s):
         mean, variance = tf.nn.moments(x, axes=[1, 2], keepdims=True)
-        inv = tf.math.rsqrt(variance + self.epsilon)
+        inv = tf.math.rsqrt(variance)
         normalized = (x - mean) * inv
 
         h = self.fc(s)
@@ -166,11 +166,12 @@ class Generator(tf.keras.Model):
 
 
 def build_generator(dim_in=64, style_dim=64, max_conv_dim=512, repeat_num=4):
-    image_input = tf.keras.Input((None, None, 3))
-    style_code_input = tf.keras.Input((style_dim,))
-    genenator = Generator(dim_in=dim_in, style_dim=style_dim, max_conv_dim=max_conv_dim, repeat_num=repeat_num)
-    output = genenator(image_input, style_code_input)
-    return tf.keras.Model(inputs=[image_input, style_code_input], outputs=output)
+    #image_input = tf.keras.Input((None, None, 3))
+    #style_code_input = tf.keras.Input((style_dim,))
+    generator = Generator(dim_in=dim_in, style_dim=style_dim, max_conv_dim=max_conv_dim, repeat_num=repeat_num)
+    #output = genenator(image_input, style_code_input)
+    #return tf.keras.Model(inputs=[image_input, style_code_input], outputs=output)
+    return generator
 
 
 class MappingNetwork(tf.keras.Model):

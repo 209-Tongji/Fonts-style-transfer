@@ -43,6 +43,54 @@ def parse_args():
 
 
 @tf.function
+def first_call(origin_images, style_target, target_images, target_class, origin_class, z_target, z2,
+               generator, discriminator, mapping_network, style_encoder,
+               generator_optimizer, discriminator_optimizer, mapping_network_optimizer, style_encoder_optimizer,
+               cycle_lambda, style_recons_lambda, style_div_lambda):
+    with tf.GradientTape(persistent=True) as tape:
+        disc_real_source = discriminator(origin_images, origin_class, training=False)
+
+        style_code_target = mapping_network(z_target, target_class, training=False)
+
+        style_code_target_gen = style_encoder(style_target, target_class, training=False)
+
+        gen_images = generator(origin_images, style_code_target, training=False)
+
+    return None
+
+
+@tf.function
+def train_discriminator_step(origin_images, style_target, target_images, target_class, origin_class, z_target,
+               generator, discriminator, mapping_network, style_encoder, discriminator_optimizer):
+
+    with tf.GradientTape(persistent=True) as tape:
+
+        disc_real_source = discriminator(origin_images, origin_class, training=True)
+        disc_real_target = discriminator(target_images, target_class, training=True)
+
+        if z_target is not None:
+            style_code_target = mapping_network(z_target, target_class, training=False)
+        else:
+            # style target is used
+            style_code_target = style_encoder(style_target, target_class, training=False)
+        gen_images = generator(origin_images, style_code_target, training=False)
+
+        disc_fake = discriminator(gen_images, target_class, training=True)
+
+        # cal disc loss
+        disc_loss = multi_discriminator_loss(disc_real_source, disc_real_target, disc_fake)
+
+
+    # calculating gradients
+    discriminator_grad = tape.gradient(disc_loss, discriminator.trainable_variables)
+
+    # apply gradients
+    discriminator_optimizer.apply_gradients(zip(discriminator_grad, discriminator.trainable_variables))
+
+    return disc_loss
+
+
+@tf.function
 def train_generator_step(origin_images, style_target, target_images, target_class, origin_class, z_target, z2,
                          generator, discriminator, mapping_network, style_encoder,
                          generator_optimizer, mapping_network_optimizer, style_encoder_optimizer,
@@ -85,46 +133,18 @@ def train_generator_step(origin_images, style_target, target_images, target_clas
 
     # calculating gradients
     generator_grad = tape.gradient(loss, generator.trainable_variables)
-    mapping_network_grad = tape.gradient(loss, mapping_network.trainable_variables)
-    style_encoder_grad = tape.gradient(loss, style_encoder.trainable_variables)
+    if z_target is not None:
+        mapping_network_grad = tape.gradient(loss, mapping_network.trainable_variables)
+        style_encoder_grad = tape.gradient(loss, style_encoder.trainable_variables)
 
     # apply gradients
     generator_optimizer.apply_gradients(zip(generator_grad, generator.trainable_variables))
-    mapping_network_optimizer.apply_gradients(zip(mapping_network_grad, mapping_network.trainable_variables))
-    style_encoder_optimizer.apply_gradients(zip(style_encoder_grad, style_encoder.trainable_variables))
+    if z_target is not None:
+        mapping_network_optimizer.apply_gradients(zip(mapping_network_grad, mapping_network.trainable_variables))
+        style_encoder_optimizer.apply_gradients(zip(style_encoder_grad, style_encoder.trainable_variables))
 
     return loss
 
-
-@tf.function
-def train_discriminator_step(origin_images, style_target, target_images, target_class, origin_class, z_target,
-               generator, discriminator, mapping_network, style_encoder, discriminator_optimizer):
-
-    with tf.GradientTape(persistent=True) as tape:
-
-        disc_real_source = discriminator(origin_images, origin_class, training=True)
-        disc_real_target = discriminator(target_images, target_class, training=True)
-
-        if z_target is not None:
-            style_code_target = mapping_network(z_target, target_class, training=False)
-        else:
-            # style target is used
-            style_code_target = style_encoder(style_target, target_class, training=False)
-        gen_images = generator(origin_images, style_code_target, training=False)
-
-        disc_fake = discriminator(gen_images, target_class, training=True)
-
-        # cal disc loss
-        disc_loss = multi_discriminator_loss(disc_real_source, disc_real_target, disc_fake)
-
-
-    # calculating gradients
-    discriminator_grad = tape.gradient(disc_loss, discriminator.trainable_variables)
-
-    # apply gradients
-    discriminator_optimizer.apply_gradients(zip(discriminator_grad, discriminator.trainable_variables))
-
-    return disc_loss
 
 
 val_l1_loss = tf.keras.metrics.Mean(name='val_l1_loss')
@@ -184,6 +204,7 @@ if __name__ == '__main__':
     epochs = args.epochs
     output_dir = args.output_dir
     font_classes = args.font_classes # list
+    num_domains = len(font_classes) + 1
     font_nums = 1000
     save_tag = args.save_tag
     #output_feature = args.output_feature
@@ -201,9 +222,9 @@ if __name__ == '__main__':
     AUTOTUNE = tf.data.experimental.AUTOTUNE
 
     generator = build_generator(dim_in=64, style_dim=64, max_conv_dim=512, repeat_num=4)
-    discriminator = build_discriminator(dim_in=64, num_domains=3, max_conv_dim=512, repea_nums=5)
-    mapping_network = build_mapping_network(latent_dim=16, style_dim=64, num_domains=3)
-    style_encoder = build_style_encoder(dim_in=64, style_dim=64, num_domains=3, max_conv_dim=512, repea_nums=5)
+    discriminator = build_discriminator(dim_in=64, num_domains=num_domains, max_conv_dim=512, repea_nums=5)
+    mapping_network = build_mapping_network(latent_dim=16, style_dim=64, num_domains=num_domains)
+    style_encoder = build_style_encoder(dim_in=64, style_dim=64, num_domains=num_domains, max_conv_dim=512, repea_nums=5)
 
     learning_rate_g = [g_learning_rate, g_learning_rate * 0.1, g_learning_rate * 0.01][:]
     boundaries_g = [int(0.4 * epochs * steps_per_epoch), int(0.6 * epochs * steps_per_epoch)]
@@ -236,6 +257,36 @@ if __name__ == '__main__':
     test_dataset = get_image_dataset(test_jsonfile, 'test').batch(1).prefetch(AUTOTUNE)
 
     epoch_timer = Timer()
+
+    demo_ds = iter(train_dataset)
+    batch_first = next(demo_ds)
+    origin = batch_first['origin']
+    style_inputs = batch_first['style_target']
+    target = batch_first['target']
+    target_class = batch_first['target_class']
+    origin_class = tf.zeros_like(target_class)
+    z_target = tf.random.normal(shape=[target_class.shape[0], 16])
+    z2 = tf.random.normal(shape=[target_class.shape[0], 16])
+    first_call(origin,
+               style_inputs,
+               target,
+               target_class,
+               origin_class,
+               z_target,
+               z2,
+               generator,
+               discriminator,
+               mapping_network,
+               style_encoder,
+               generator_optimizer,
+               discriminator_optimizer,
+               mapping_network_optimizer,
+               style_encoder_optimizer,
+               cycle_lambda,
+               style_recons_lambda,
+               style_div_lambda)
+    del demo_ds
+    del batch_first
 
     for epoch in range(epochs):
         # Reset train metrics
