@@ -161,7 +161,8 @@ class Generator(tf.keras.Model):
             x = block(x)
         for block in self.decode:
             x = block(x, s)
-        return self.to_rgb(x)
+        x = self.to_rgb(x)
+        return tf.math.tanh(x)
 
 
 def build_generator(dim_in=64, style_dim=64, max_conv_dim=512, repeat_num=4):

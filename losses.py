@@ -2,9 +2,9 @@ import tensorflow as tf
 
 
 # L1 reconstruction loss
-def l1_loss(real_image, gen_image, l1_lambda):
+def l1_loss(real_image, gen_image):
     loss = tf.reduce_mean(tf.abs(real_image - gen_image))
-    return l1_lambda * loss
+    return loss
 
 
 
@@ -32,7 +32,23 @@ def standard_discriminator_loss(disc_real, disc_gen):
     loss_obj = tf.keras.losses.BinaryCrossentropy(from_logits=True)
     real_loss = loss_obj(tf.ones_like(disc_real), disc_real)
     gen_loss = loss_obj(tf.zeros_like(disc_gen), disc_gen)
-    return (real_loss + gen_loss) * 0.5
+    return real_loss + gen_loss
+
+
+def multi_discriminator_loss(disc_real_source, disc_real_target, disc_gen):
+    """multi gan discriminator loss
+
+    Args:
+        disc_real: Discriminator judge images that is real
+        disc_gen: Discriminator judge images that generated from Generator
+
+    """
+
+    loss_obj = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+    real_source_loss = loss_obj(tf.ones_like(disc_real_source), disc_real_source)
+    real_target_loss = loss_obj(tf.ones_like(disc_real_target), disc_real_target)
+    gen_loss = loss_obj(tf.zeros_like(disc_gen), disc_gen)
+    return real_source_loss + real_target_loss + gen_loss
 
 
 # Relativistic Standard GAN
