@@ -172,7 +172,6 @@ def build_generator(dim_in=64, style_dim=64, max_conv_dim=512, repeat_num=4):
     return tf.keras.Model(inputs=[image_input, style_code_input], outputs=output)
 
 
-
 class MappingNetwork(tf.keras.Model):
     def __init__(self, latent_dim=16, style_dim=64, num_domains=3):
         super(MappingNetwork, self).__init__()
@@ -208,6 +207,80 @@ class MappingNetwork(tf.keras.Model):
 def build_mapping_network(latent_dim=16, style_dim=64, num_domains=3):
     mapping_network = MappingNetwork(latent_dim, style_dim, num_domains)
     return mapping_network
+
+
+class StyleEncoder(tf.keras.Model):
+    def __init__(self, dim_in=64, style_dim=64, num_domains=3, max_conv_dim=512, repeat_nums=5):
+        super(StyleEncoder, self).__init__()
+        self.shared = []
+        self.shared.append(tf.keras.layers.Conv2D(filters=dim_in, kernel_size=3, padding='same'))
+
+        for _ in range(repeat_nums):
+            dim_out = min(dim_in * 2, max_conv_dim)
+            self.shared.append(ResBlock(dim_in, dim_out, downsample=True))
+            dim_in = dim_out
+
+        self.shared.append(tf.keras.layers.LeakyReLU(0.2))
+        self.shared.append(tf.keras.layers.Conv2D(filters=dim_out, kernel_size=7, strides=1, padding='valid'))
+        self.shared.append(tf.keras.layers.LeakyReLU(0.2))
+
+        self.unshared = []
+        for _ in range(num_domains):
+            self.unshared.append(tf.keras.layers.Dense(style_dim))
+
+    def call(self, x, y):
+        for block in self.shared:
+            x = block(x)
+        x = tf.reshape(x, shape=[x.shape[0], -1])
+
+        out = []
+        for layer in self.unshared:
+            out += [layer(x)]
+        out = tf.stack(out, axis=1)  # (batch, num_domains, style_dim)
+        res = []
+        for i in range(y.shape[0]):
+            y_index = y[i]
+            res.append(out[i, y_index])  # (batch, style_dim)
+        return tf.stack(res, axis=0)
+
+def build_style_encoder(dim_in=64, style_dim=64, num_domains=3, max_conv_dim=512, repea_nums=5):
+    style_encoder = StyleEncoder(dim_in, style_dim, num_domains, max_conv_dim, repea_nums)
+    return style_encoder
+
+
+
+class Discriminator(tf.keras.Model):
+    def __init__(self, dim_in=64, num_domains=3, max_conv_dim=512, repeat_nums=5):
+        super(Discriminator, self).__init__()
+        self.blocks = []
+        self.blocks.append(tf.keras.layers.Conv2D(filters=dim_in, kernel_size=3, padding='same'))
+
+        for _ in range(repeat_nums):
+            dim_out = min(dim_in * 2, max_conv_dim)
+            self.blocks.append(ResBlock(dim_in, dim_out, downsample=True))
+            dim_in = dim_out
+
+        self.blocks.append(tf.keras.layers.LeakyReLU(0.2))
+        self.blocks.append(tf.keras.layers.Conv2D(filters=dim_out, kernel_size=7, strides=1, padding='valid'))
+        self.blocks.append(tf.keras.layers.LeakyReLU(0.2))
+
+        # domain's results are differentiated by channels
+        self.blocks.append(tf.keras.layers.Conv2D(filters=num_domains, kernel_size=1, strides=1, padding='valid'))
+
+    def call(self, x, y):
+        for block in self.blocks:
+            x = block(x)
+        x = tf.reshape(x, shape=[x.shape[0], -1])  # (batch, num_domains)
+        res = []
+        for i in range(y.shape[0]):
+            y_index = y[i]
+            res.append(x[i, y_index])  # (batch, )
+        return tf.stack(res, axis=0)
+
+def build_discriminator(dim_in=64, num_domains=3, max_conv_dim=512, repea_nums=5):
+    discriminator = Discriminator(dim_in, num_domains, max_conv_dim, repea_nums)
+    return discriminator
+
 
 
 
