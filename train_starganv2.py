@@ -3,6 +3,7 @@ import sys
 import argparse
 import time
 import tensorflow as tf
+from tqdm import tqdm
 
 from utils import *
 from dataset import get_image_dataset
@@ -298,7 +299,7 @@ if __name__ == '__main__':
 
         # Train Loop
         epoch_timer.timeit()
-        for batch in train_dataset:
+        for batch in tqdm(train_dataset):
             origin = batch['origin']
             style_inputs = batch['style_target']
             target = batch['target']
@@ -397,7 +398,7 @@ if __name__ == '__main__':
 
         # Val Loop
         epoch_timer.timeit()
-        for batch in val_dataset:
+        for batch in tqdm(val_dataset):
             origin = batch['origin']
             style_inputs = batch['style_target']
             target = batch['target']
@@ -423,7 +424,7 @@ if __name__ == '__main__':
         cur_output_dir = os.path.join(output_dir, 'epoch{}'.format(epoch + 1))
         tf.io.gfile.mkdir(cur_output_dir)
         epoch_timer.timeit()
-        for batch in test_dataset:
+        for batch in tqdm(test_dataset):
             origin = batch['origin']
             style_inputs = batch['style_target']
             target = batch['target']
