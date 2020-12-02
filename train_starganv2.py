@@ -444,14 +444,12 @@ if __name__ == '__main__':
         )
 
         # Save Model (weights)
-        generator.save_weights(os.path.join(output_dir,
-                                            'checkpoints_weights',
-                                            'epoch_{}'.format(epoch + 1),
-                                            'generator_weights.h5'))
-        style_encoder.save_weights(os.path.join(output_dir,
-                                            'checkpoints_weights',
-                                            'epoch_{}'.format(epoch + 1),
-                                            'style_encoder_weights.h5'))
+        save_path = os.path.join(output_dir, 'checkpoints_weights', 'epoch_{}'.format(epoch + 1))
+        tf.io.gfile.makedirs(save_path)
+
+        generator.save_weights(os.path.join(save_path, 'generator_weights.h5'))
+        style_encoder.save_weights(os.path.join(save_path, 'style_encoder_weights.h5'))
+        
 
         # Save Model
         #generator.save(os.path.join(output_dir,
