@@ -446,7 +446,12 @@ if __name__ == '__main__':
         generator.save_weights(os.path.join(output_dir,
                                             'checkpoints_weights',
                                             'epoch_{}'.format(epoch + 1),
-                                            'variables'))
+                                            'generator_weights.h5'))
+        style_encoder.save_weights(os.path.join(output_dir,
+                                            'checkpoints_weights',
+                                            'epoch_{}'.format(epoch + 1),
+                                            'style_encoder_weights.h5'))
+
         # Save Model
         #generator.save(os.path.join(output_dir,
         #                            'checkpoints',
