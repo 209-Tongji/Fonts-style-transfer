@@ -46,7 +46,7 @@ def build_path(target_path, font_tag):
 
 def read_decode_image(path):
     img = tf.io.read_file(path)
-    img = tf.io.decode_png(img, 3) # [0, 1]
+    img = tf.io.decode_jpeg(img, 3) # [0, 1]
     img = tf.image.convert_image_dtype(img, tf.float32)
     img = img * 2.0 - 1.0 # normalize [-1., 1.]
     return img

@@ -223,9 +223,9 @@ if __name__ == '__main__':
     AUTOTUNE = tf.data.experimental.AUTOTUNE
 
     generator = build_generator(dim_in=64, style_dim=64, max_conv_dim=512, repeat_num=4)
-    discriminator = build_discriminator(dim_in=64, num_domains=num_domains, max_conv_dim=512, repea_nums=5)
+    discriminator = build_discriminator(dim_in=64, num_domains=num_domains, max_conv_dim=512, repea_nums=6)
     mapping_network = build_mapping_network(latent_dim=16, style_dim=64, num_domains=num_domains)
-    style_encoder = build_style_encoder(dim_in=64, style_dim=64, num_domains=num_domains, max_conv_dim=512, repea_nums=5)
+    style_encoder = build_style_encoder(dim_in=64, style_dim=64, num_domains=num_domains, max_conv_dim=512, repea_nums=6)
 
     learning_rate_g = [g_learning_rate, g_learning_rate * 0.1, g_learning_rate * 0.01][:]
     boundaries_g = [int(0.4 * epochs * steps_per_epoch), int(0.6 * epochs * steps_per_epoch)]
@@ -449,7 +449,7 @@ if __name__ == '__main__':
 
         generator.save_weights(os.path.join(save_path, 'generator_weights.h5'))
         style_encoder.save_weights(os.path.join(save_path, 'style_encoder_weights.h5'))
-        
+
 
         # Save Model
         #generator.save(os.path.join(output_dir,
