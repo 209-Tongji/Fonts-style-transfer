@@ -212,7 +212,7 @@ def build_mapping_network(latent_dim=16, style_dim=64, num_domains=3):
 
 
 class StyleEncoder(tf.keras.Model):
-    def __init__(self, dim_in=64, style_dim=64, num_domains=3, max_conv_dim=512, repeat_nums=5):
+    def __init__(self, dim_in=64, style_dim=64, num_domains=3, max_conv_dim=512, repeat_nums=6):
         super(StyleEncoder, self).__init__()
         self.shared = []
         self.shared.append(tf.keras.layers.Conv2D(filters=dim_in, kernel_size=3, padding='same'))
@@ -223,7 +223,7 @@ class StyleEncoder(tf.keras.Model):
             dim_in = dim_out
 
         self.shared.append(tf.keras.layers.LeakyReLU(0.2))
-        self.shared.append(tf.keras.layers.Conv2D(filters=dim_out, kernel_size=7, strides=1, padding='valid'))
+        self.shared.append(tf.keras.layers.Conv2D(filters=dim_out, kernel_size=4, strides=1, padding='valid'))
         self.shared.append(tf.keras.layers.LeakyReLU(0.2))
 
         self.unshared = []
@@ -245,14 +245,14 @@ class StyleEncoder(tf.keras.Model):
             res.append(out[i, y_index])  # (batch, style_dim)
         return tf.stack(res, axis=0)
 
-def build_style_encoder(dim_in=64, style_dim=64, num_domains=3, max_conv_dim=512, repea_nums=5):
+def build_style_encoder(dim_in=64, style_dim=64, num_domains=3, max_conv_dim=512, repea_nums=6):
     style_encoder = StyleEncoder(dim_in, style_dim, num_domains, max_conv_dim, repea_nums)
     return style_encoder
 
 
 
 class Discriminator(tf.keras.Model):
-    def __init__(self, dim_in=64, num_domains=3, max_conv_dim=512, repeat_nums=5):
+    def __init__(self, dim_in=64, num_domains=3, max_conv_dim=512, repeat_nums=6):
         super(Discriminator, self).__init__()
         self.blocks = []
         self.blocks.append(tf.keras.layers.Conv2D(filters=dim_in, kernel_size=3, padding='same'))
@@ -263,7 +263,7 @@ class Discriminator(tf.keras.Model):
             dim_in = dim_out
 
         self.blocks.append(tf.keras.layers.LeakyReLU(0.2))
-        self.blocks.append(tf.keras.layers.Conv2D(filters=dim_out, kernel_size=7, strides=1, padding='valid'))
+        self.blocks.append(tf.keras.layers.Conv2D(filters=dim_out, kernel_size=4, strides=1, padding='valid'))
         self.blocks.append(tf.keras.layers.LeakyReLU(0.2))
 
         # domain's results are differentiated by channels
@@ -279,7 +279,7 @@ class Discriminator(tf.keras.Model):
             res.append(x[i, y_index])  # (batch, )
         return tf.stack(res, axis=0)
 
-def build_discriminator(dim_in=64, num_domains=3, max_conv_dim=512, repea_nums=5):
+def build_discriminator(dim_in=64, num_domains=3, max_conv_dim=512, repea_nums=6):
     discriminator = Discriminator(dim_in, num_domains, max_conv_dim, repea_nums)
     return discriminator
 
