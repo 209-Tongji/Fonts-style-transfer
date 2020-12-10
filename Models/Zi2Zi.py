@@ -10,7 +10,8 @@ class EncodeBlock(tf.keras.Model):
                                            kernel_size=5,
                                            strides=(2, 2),
                                            padding='same',
-                                           use_bias=True)
+                                           use_bias=True,
+                                           kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.02))
         self.norm = tf.keras.layers.BatchNormalization()
 
     def call(self, x):
@@ -31,7 +32,8 @@ class DecodeBlock(tf.keras.Model):
                                                     kernel_size=5,
                                                     strides=(2, 2),
                                                     padding='same',
-                                                    use_bias=True)
+                                                    use_bias=True,
+                                                    kernel_initializer=tf.random_normal_initializer(stddev=0.02))
         if use_norm:
             self.norm = tf.keras.layers.BatchNormalization()
         if use_dropout:
@@ -52,7 +54,8 @@ class Generator(tf.keras.Model):
     def __init__(self):
         super(Generator, self).__init__()
 
-        self.e1 = tf.keras.layers.Conv2D(filters=64, kernel_size=5, strides=(2, 2), padding='same', use_bias=True)
+        self.e1 = tf.keras.layers.Conv2D(filters=64, kernel_size=5, strides=(2, 2), padding='same', use_bias=True,
+                                         kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.02))
         self.e2 = EncodeBlock(128)
         self.e3 = EncodeBlock(256)
         self.e4 = EncodeBlock(512)
@@ -127,19 +130,23 @@ class Discriminator(tf.keras.Model):
         super(Discriminator, self).__init__()
         self.batch_size = batch_size
 
-        self.conv1 = tf.keras.layers.Conv2D(filters=64, kernel_size=5, strides=(2, 2), padding='same', use_bias=True)
+        self.conv1 = tf.keras.layers.Conv2D(filters=64, kernel_size=5, strides=(2, 2), padding='same', use_bias=True,
+                                            kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.02))
         self.lrelu1 = tf.keras.layers.LeakyReLU(0.2)
-        self.conv2 = tf.keras.layers.Conv2D(filters=128, kernel_size=5, strides=(2, 2), padding='same', use_bias=True)
+        self.conv2 = tf.keras.layers.Conv2D(filters=128, kernel_size=5, strides=(2, 2), padding='same', use_bias=True,
+                                            kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.02))
         self.norm2 = tf.keras.layers.BatchNormalization()
         self.lrelu2 = tf.keras.layers.LeakyReLU(0.2)
-        self.conv3 = tf.keras.layers.Conv2D(filters=256, kernel_size=5, strides=(2, 2), padding='same', use_bias=True)
+        self.conv3 = tf.keras.layers.Conv2D(filters=256, kernel_size=5, strides=(2, 2), padding='same', use_bias=True,
+                                            kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.02))
         self.norm3 = tf.keras.layers.BatchNormalization()
         self.lrelu3 = tf.keras.layers.LeakyReLU(0.2)
-        self.conv4 = tf.keras.layers.Conv2D(filters=512, kernel_size=5, strides=(2, 2), padding='same', use_bias=True)
+        self.conv4 = tf.keras.layers.Conv2D(filters=512, kernel_size=5, strides=(2, 2), padding='same', use_bias=True,
+                                            kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.02))
         self.norm4 = tf.keras.layers.BatchNormalization()
         self.lrelu4 = tf.keras.layers.LeakyReLU(0.2)
-        self.fc1 = tf.keras.layers.Dense(1)
-        self.fc2 = tf.keras.layers.Dense(num_domains)
+        self.fc1 = tf.keras.layers.Dense(1, kernel_initializer=tf.random_normal_initializer(0., 0.02))
+        self.fc2 = tf.keras.layers.Dense(num_domains, kernel_initializer=tf.random_normal_initializer(0., 0.02))
 
     def call(self, x):
         x = self.conv1(x)
