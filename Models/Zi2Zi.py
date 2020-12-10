@@ -49,7 +49,7 @@ class DecodeBlock(tf.keras.Model):
 
 
 class Generator(tf.keras.Model):
-    def __init__(self, style_dim=64, max_conv_dim=512, repeat_num=7):
+    def __init__(self):
         super(Generator, self).__init__()
 
         self.e1 = tf.keras.layers.Conv2D(filters=64, kernel_size=5, strides=(2, 2), padding='same', use_bias=True)
@@ -115,3 +115,50 @@ class Generator(tf.keras.Model):
         out = self.d8(out)  # (bs, 256, 256, 3)
 
         return x8, tf.nn.tanh(out)
+
+
+def build_generator():
+    generator = Generator()
+    return generator
+
+
+class Discriminator(tf.keras.Model):
+    def __init__(self, num_domains=10, batch_size=4):
+        super(Discriminator, self).__init__()
+        self.batch_size = batch_size
+
+        self.conv1 = tf.keras.layers.Conv2D(filters=64, kernel_size=5, strides=(2, 2), padding='same', use_bias=True)
+        self.lrelu1 = tf.keras.layers.LeakyReLU(0.2)
+        self.conv2 = tf.keras.layers.Conv2D(filters=128, kernel_size=5, strides=(2, 2), padding='same', use_bias=True)
+        self.norm2 = tf.keras.layers.BatchNormalization()
+        self.lrelu2 = tf.keras.layers.LeakyReLU(0.2)
+        self.conv3 = tf.keras.layers.Conv2D(filters=256, kernel_size=5, strides=(2, 2), padding='same', use_bias=True)
+        self.norm3 = tf.keras.layers.BatchNormalization()
+        self.lrelu3 = tf.keras.layers.LeakyReLU(0.2)
+        self.conv4 = tf.keras.layers.Conv2D(filters=512, kernel_size=5, strides=(2, 2), padding='same', use_bias=True)
+        self.norm4 = tf.keras.layers.BatchNormalization()
+        self.lrelu4 = tf.keras.layers.LeakyReLU(0.2)
+        self.fc1 = tf.keras.layers.Dense(1)
+        self.fc2 = tf.keras.layers.Dense(num_domains)
+
+    def call(self, x):
+        x = self.conv1(x)
+        x = self.lrelu1(x)
+        x = self.conv2(x)
+        x = self.norm2(x)
+        x = self.lrelu2(x)
+        x = self.conv3(x)
+        x = self.norm3(x)
+        x = self.lrelu3(x)
+        x = self.conv4(x)
+        x = self.norm4(x)
+        x = self.lrelu4(x)
+
+        d1 = self.fc1(tf.reshape(x, [self.batch_size, -1]))
+        d2 = self.fc2(tf.reshape(x, [self.batch_size, -1]))
+
+        return tf.nn.sigmoid(d1), d1, d2
+
+def build_discriminator(num_domains=10, batch_size=4):
+    discriminator = Discriminator(num_domains=num_domains, batch_size=batch_size)
+    return discriminator
