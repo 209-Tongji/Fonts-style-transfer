@@ -126,9 +126,8 @@ def build_generator():
 
 
 class Discriminator(tf.keras.Model):
-    def __init__(self, num_domains=10, batch_size=4):
+    def __init__(self, num_domains=10):
         super(Discriminator, self).__init__()
-        self.batch_size = batch_size
 
         self.conv1 = tf.keras.layers.Conv2D(filters=64, kernel_size=5, strides=(2, 2), padding='same', use_bias=True,
                                             kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.02))
@@ -161,11 +160,11 @@ class Discriminator(tf.keras.Model):
         x = self.norm4(x)
         x = self.lrelu4(x)
 
-        d1 = self.fc1(tf.reshape(x, [self.batch_size, -1]))
-        d2 = self.fc2(tf.reshape(x, [self.batch_size, -1]))
+        d1 = self.fc1(tf.reshape(x, [x.shape[0], -1]))
+        d2 = self.fc2(tf.reshape(x, [x.shape[0], -1]))
 
         return tf.nn.sigmoid(d1), d1, d2
 
 def build_discriminator(num_domains=10, batch_size=4):
-    discriminator = Discriminator(num_domains=num_domains, batch_size=batch_size)
+    discriminator = Discriminator(num_domains=num_domains)
     return discriminator
