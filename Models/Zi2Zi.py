@@ -165,6 +165,6 @@ class Discriminator(tf.keras.Model):
 
         return tf.nn.sigmoid(d1), d1, d2
 
-def build_discriminator(num_domains=10, batch_size=4):
+def build_discriminator(num_domains=10):
     discriminator = Discriminator(num_domains=num_domains)
     return discriminator
