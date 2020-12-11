@@ -18,7 +18,7 @@ logger = get_logger()
 def build_train_json(train_dir, train_classes, output_dir, save_tag):
     all_target_path_list = []
     for font_class in train_classes:
-        font_class_dir = (train_dir + '/{}/*.png').format(str(font_class))
+        font_class_dir = (train_dir + '/{}/*.jpg').format(str(font_class))
         target_path_list = tf.io.gfile.glob(font_class_dir)
         all_target_path_list.extend(target_path_list)
 
@@ -33,7 +33,7 @@ def build_train_json(train_dir, train_classes, output_dir, save_tag):
         origin_path = gather_path(origin_path)
 
         style_index = str(random.randint(0, 999)).zfill(4)
-        style_index = 'hz_{}.png'.format(style_index)
+        style_index = 'hanzi_{}.jpg'.format(style_index)
         path_split[3] = style_index
         style_path = gather_path(path_split)
         temp['target_path'] = target_path
@@ -61,7 +61,7 @@ def build_train_json(train_dir, train_classes, output_dir, save_tag):
 def build_val_json(val_dir, val_classes, output_dir, save_tag):
     all_target_path_list = []
     for font_class in val_classes:
-        font_class_dir = (val_dir + '/{}/*.png').format(str(font_class))
+        font_class_dir = (val_dir + '/{}/*.jpg').format(str(font_class))
         target_path_list = tf.io.gfile.glob(font_class_dir)
         all_target_path_list.extend(target_path_list)
 
@@ -76,7 +76,7 @@ def build_val_json(val_dir, val_classes, output_dir, save_tag):
         origin_path = gather_path(origin_path)
 
         style_index = str(random.randint(1000, 1199)).zfill(4)
-        style_index = 'hz_{}.png'.format(style_index)
+        style_index = 'hanzi_{}.jpg'.format(style_index)
         path_split[3] = style_index
         style_path = gather_path(path_split)
         temp['target_path'] = target_path
@@ -103,7 +103,7 @@ def build_val_json(val_dir, val_classes, output_dir, save_tag):
 def build_test_json(test_dir, test_classes, output_dir, save_tag):
     all_target_path_list = []
     for font_class in test_classes:
-        font_class_dir = (test_dir + '/{}/*.png').format(str(font_class))
+        font_class_dir = (test_dir + '/{}/*.jpg').format(str(font_class))
         target_path_list = tf.io.gfile.glob(font_class_dir)
         all_target_path_list.extend(target_path_list)
 
@@ -118,7 +118,7 @@ def build_test_json(test_dir, test_classes, output_dir, save_tag):
         origin_path = gather_path(origin_path)
 
         style_index = str(random.randint(1200, 1249)).zfill(4)
-        style_index = 'hz_{}.png'.format(style_index)
+        style_index = 'hanzi_{}.jpg'.format(style_index)
         path_split[3] = style_index
         style_path = gather_path(path_split)
         temp['target_path'] = target_path

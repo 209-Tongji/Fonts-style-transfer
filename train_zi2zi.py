@@ -26,9 +26,9 @@ def parse_args():
     parser.add_argument('--g-learning-rate', type=float, default=0.001, help='Initial G Learning Rate')
     parser.add_argument('--d-learning-rate', type=float, default=0.001, help='Initial D Learning Rate')
     parser.add_argument('--l1-lambda', type=int, default=100, help='L1 Loss Lambda')
-    parser.add_argument('--const-lambda', type=int, default=15, help='Cycle Loss Lambda')
-    parser.add_argument('--tv-lambda', type=int, default=0, help='Style Reconstruction Loss Lambda')
-    parser.add_argument('--category-lambda', type=int, default=1, help='Style Diversity Loss Lambda')
+    parser.add_argument('--const-lambda', type=int, default=15, help='Constant Loss Lambda')
+    parser.add_argument('--tv-lambda', type=int, default=0, help='TV Loss Lambda')
+    parser.add_argument('--category-lambda', type=int, default=1, help='Category Loss Lambda')
     #parser.add_argument('--norm-type', type=str, default='instancenorm', help='Norm Type')
     parser.add_argument('--epochs', type=int, default=30, help='Epoch Nums')
     parser.add_argument('--output-dir', type=str, default='results', help='Output Results Directory')
@@ -66,7 +66,7 @@ def train_discriminator_step(origin_images, style_target, target_images, target_
         disc_target, disc_target_logits, disc_target_category_logits = discriminator(target_images, training=True)
 
         # generate fake target images from origin images
-        gen_images, _ = generator(origin_images, embedding, target_class, training=False)
+        _ , gen_images = generator(origin_images, embedding, target_class, training=False)
 
         # judge fake target images
         disc_gen, disc_gen_logits, disc_gen_category_logits = discriminator(gen_images, training=True)
@@ -80,13 +80,12 @@ def train_discriminator_step(origin_images, style_target, target_images, target_
         # category loss
         target_category_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_target_category_logits,
                                                                                       labels=target_labels))
-        category_loss = category_lambda * target_category_loss
 
         # binary real/fake loss
         disc_loss = multi_discriminator_loss(disc_source_logits, disc_target_logits, disc_gen_logits)
 
         #total discriminator loss
-        d_loss = category_loss + disc_loss
+        d_loss = category_lambda * target_category_loss + disc_loss
 
 
     # calculating gradients
@@ -95,7 +94,7 @@ def train_discriminator_step(origin_images, style_target, target_images, target_
     # apply gradients
     discriminator_optimizer.apply_gradients(zip(discriminator_grad, discriminator.trainable_variables))
 
-    return category_loss, disc_loss
+    return category_lambda * target_category_loss, disc_loss
 
 
 @tf.function
@@ -105,10 +104,10 @@ def train_generator_step(origin_images, style_target, target_images, target_clas
     with tf.GradientTape(persistent=True) as tape:
 
         # generate fake target images from origin images
-        gen_images, encoded_origin_images = generator(origin_images, embedding, target_class, training=True)
+        encoded_origin_images, gen_images = generator(origin_images, embedding, target_class, training=True)
 
         # generate gen images' embedding to approach the origin images' embedding
-        _, encoded_gen_images = generator(gen_images, embedding, origin_class, training=True)
+        encoded_gen_images, _ = generator(gen_images, embedding, origin_class, training=True)
 
         # fool the discriminator
         disc_gen, disc_gen_logits, disc_gen_category_logits = discriminator(gen_images, training=False)
@@ -147,7 +146,7 @@ def train_generator_step(origin_images, style_target, target_images, target_clas
 val_l1_loss = tf.keras.metrics.Mean(name='val_l1_loss')
 val_ssim = tf.keras.metrics.Mean(name='val_ssim')
 def val_step(origin_images, style_target, target_images, target_class, generator, embedding, l1_lambda):
-    output_images = generator(origin_images, embedding, target_class, training=False)
+    _, output_images = generator(origin_images, embedding, target_class, training=False)
 
     target_images_renormalized = (target_images + 1.0) / 2
     output_images_renormalized = (output_images + 1.0) / 2
@@ -163,7 +162,7 @@ def val_step(origin_images, style_target, target_images, target_class, generator
 
 
 def test_step(origin_images, style_target, target_images, target_class, target_path, generator, embedding, output_dir):
-    output_images = generator(origin_images, embedding, target_class, training=False)
+    _, output_images = generator(origin_images, embedding, target_class, training=False)
 
     output_images_renormalized = (output_images + 1.0) / 2
     output_images_renormalized = output_images_renormalized[0]
