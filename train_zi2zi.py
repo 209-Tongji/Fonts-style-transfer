@@ -60,32 +60,33 @@ def train_discriminator_step(origin_images, style_target, target_images, target_
 
     with tf.GradientTape(persistent=True) as tape:
 
-        # judge origin images
-        disc_source, disc_source_logits, disc_source_category_logits = discriminator(origin_images, training=True)
-        # judge target images
-        disc_target, disc_target_logits, disc_target_category_logits = discriminator(target_images, training=True)
+        # judge true paired images
+        real_AB = tf.concat([origin_images, target_images], 3)
+        disc_real, disc_real_logits, disc_real_category_logits = discriminator(real_AB, training=True)
 
         # generate fake target images from origin images
-        _ , gen_images = generator(origin_images, embedding, target_class, training=False)
-
-        # judge fake target images
-        disc_gen, disc_gen_logits, disc_gen_category_logits = discriminator(gen_images, training=True)
+        _, gen_images = generator(origin_images, embedding, target_class, training=False)
+        fake_AB = tf.concat([origin_images, gen_images], 3)
+        disc_fake, disc_fake_logits, disc_fake_category_logits = discriminator(fake_AB, training=True)
 
         # target images' onehot true labels
-        target_labels = tf.reshape(tf.one_hot(indices=target_class, depth=num_domains), shape=[target_class.shape[0], num_domains])
-
-        # origin images' onehot true labels  all index is 0
-        # origin_labels = tf.reshape(tf.one_hot(indices=origin_class, depth=num_domains), shape=[origin_class.shape[0], num_domains])
+        true_labels = tf.reshape(tf.one_hot(indices=target_class, depth=num_domains),
+                                 shape=[target_class.shape[0], num_domains])
 
         # category loss
-        target_category_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_target_category_logits,
-                                                                                      labels=target_labels))
+        real_category_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_real_category_logits,
+                                                                                    labels=true_labels))
+        fake_category_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_category_logits,
+                                                                                    labels=true_labels))
 
         # binary real/fake loss
-        disc_loss = multi_discriminator_loss(disc_source_logits, disc_target_logits, disc_gen_logits)
+        d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_real_logits,
+                                                                             labels=tf.ones_like(disc_real)))
+        d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_logits,
+                                                                             labels=tf.zeros_like(disc_fake)))
 
-        #total discriminator loss
-        d_loss = category_lambda * target_category_loss + disc_loss
+        # total discriminator loss
+        d_loss = category_lambda * (real_category_loss + fake_category_loss) + d_loss_real + d_loss_fake
 
 
     # calculating gradients
@@ -94,7 +95,7 @@ def train_discriminator_step(origin_images, style_target, target_images, target_
     # apply gradients
     discriminator_optimizer.apply_gradients(zip(discriminator_grad, discriminator.trainable_variables))
 
-    return category_lambda * target_category_loss, disc_loss
+    return category_lambda * (real_category_loss + fake_category_loss), d_loss_real + d_loss_fake
 
 
 @tf.function
@@ -102,33 +103,31 @@ def train_generator_step(origin_images, style_target, target_images, target_clas
                          generator, discriminator, generator_optimizer, l1_lambda, const_lambda, category_lambda):
 
     with tf.GradientTape(persistent=True) as tape:
-
         # generate fake target images from origin images
         encoded_origin_images, gen_images = generator(origin_images, embedding, target_class, training=True)
-
-        # generate gen images' embedding to approach the origin images' embedding
-        encoded_gen_images, _ = generator(gen_images, embedding, origin_class, training=True)
-
+        fake_AB = tf.concat([origin_images, gen_images], 3)
         # fool the discriminator
-        disc_gen, disc_gen_logits, disc_gen_category_logits = discriminator(gen_images, training=False)
+        fake_D, fake_D_logits, fake_category_logits = discriminator(fake_AB, training=False)
 
         # encoding constant loss
         # this loss assume that generated imaged and real image
         # should reside in the same space and close to each other
-        const_loss = (tf.reduce_mean(tf.square(encoded_origin_images - encoded_gen_images))) * const_lambda
-
-        # L1 loss between real and generated images
-        mae_loss = l1_loss(target_images, gen_images)
-
-        # maximize the chance generator fool the discriminator
-        cheat_loss = standard_generator_loss(disc_gen_logits)
+        encoded_gen_images, _ = generator(gen_images, embedding, origin_class, training=True)
+        const_loss = (tf.reduce_mean(tf.square(encoded_origin_images - encoded_gen_images)))
 
         # gen images try to category right
         # target images' onehot true labels
-        target_labels = tf.reshape(tf.one_hot(indices=target_class, depth=num_domains),
-                                   shape=[target_class.shape[0], num_domains])
-        fake_category_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_gen_category_logits,
-                                                                                    labels=target_labels))
+        true_labels = tf.reshape(tf.one_hot(indices=target_class, depth=num_domains),
+                                 shape=[target_class.shape[0], num_domains])
+        fake_category_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=fake_category_logits,
+                                                                                    labels=true_labels))
+
+        # L1 loss between real and generated images
+        mae_loss = tf.reduce_mean(tf.abs(gen_images - target_images))
+
+        # maximize the chance generator fool the discriminator
+        cheat_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=fake_D_logits,
+                                                                            labels=tf.ones_like(fake_D)))
 
         # cal total loss
         g_loss = const_lambda * const_loss + l1_lambda * mae_loss + cheat_loss + category_lambda * fake_category_loss
@@ -196,7 +195,7 @@ if __name__ == '__main__':
     epochs = args.epochs
     output_dir = args.output_dir
     font_classes = args.font_classes # list
-    num_domains = len(font_classes) + 1
+    num_domains = len(font_classes) # zi2zi only
     font_nums = 1000
     save_tag = args.save_tag
     #output_feature = args.output_feature
@@ -309,7 +308,20 @@ if __name__ == '__main__':
                                                                                l1_lambda=l1_lambda,
                                                                                const_lambda=const_lambda,
                                                                                category_lambda=category_lambda)
-
+            # magic operation to optimize G twice
+            gen_const_loss, gen_mae_loss, gen_cate_loss = train_generator_step(origin_images=origin,
+                                                                               style_target=style_inputs,
+                                                                               target_images=target,
+                                                                               target_class=target_class,
+                                                                               origin_class=origin_class,
+                                                                               embedding=embedding,
+                                                                               num_domains=num_domains,
+                                                                               generator=generator,
+                                                                               discriminator=discriminator,
+                                                                               generator_optimizer=generator_optimizer,
+                                                                               l1_lambda=l1_lambda,
+                                                                               const_lambda=const_lambda,
+                                                                               category_lambda=category_lambda)
 
             train_disc_category_loss_sum += disc_cate_loss
             train_disc_loss_sum += disc_loss
@@ -391,8 +403,7 @@ if __name__ == '__main__':
         )
 
         # Save Model (weights)
-        save_path = os.path.join(output_dir, 'checkpoints_weights', 'epoch_{}'.format(epoch + 1))
-        tf.io.gfile.makedirs(save_path)
-
-        if epoch % 2 == 0:
+        if epoch % 5 == 0:
+            save_path = os.path.join(output_dir, 'checkpoints_weights', 'epoch_{}'.format(epoch + 1))
+            tf.io.gfile.makedirs(save_path)
             generator.save_weights(os.path.join(save_path, 'generator_weights.h5'))

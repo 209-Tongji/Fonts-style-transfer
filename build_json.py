@@ -29,7 +29,7 @@ def build_train_json(train_dir, train_classes, output_dir, save_tag):
         temp = dict()
         path_split = target_path.split('/')
 
-        origin_path = path_split[:2] + ['0'] + path_split[3:]
+        origin_path = path_split[:2] + ['9'] + path_split[3:]
         origin_path = gather_path(origin_path)
 
         style_index = str(random.randint(0, 999)).zfill(4)
@@ -72,7 +72,7 @@ def build_val_json(val_dir, val_classes, output_dir, save_tag):
         temp = dict()
         path_split = target_path.split('/')
 
-        origin_path = path_split[:2] + ['0'] + path_split[3:]
+        origin_path = path_split[:2] + ['9'] + path_split[3:]
         origin_path = gather_path(origin_path)
 
         style_index = str(random.randint(1000, 1199)).zfill(4)
@@ -114,7 +114,7 @@ def build_test_json(test_dir, test_classes, output_dir, save_tag):
         temp = dict()
         path_split = target_path.split('/')
 
-        origin_path = path_split[:2] + ['0'] + path_split[3:]
+        origin_path = path_split[:2] + ['9'] + path_split[3:]
         origin_path = gather_path(origin_path)
 
         style_index = str(random.randint(1200, 1249)).zfill(4)
